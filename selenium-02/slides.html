@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Selenium · Парсим новости</title>
+<link rel="stylesheet" href="../shared/slides.css">
+<style>
+  table.t { border-collapse: collapse; font-size: 21px; width: 100%; background: #fff; border: 3px solid var(--ink); border-radius: 14px; overflow: hidden; box-shadow: var(--sh); }
+  table.t th, table.t td { padding: 8px 14px; border-bottom: 2px solid var(--soft); text-align: left; vertical-align: top; }
+  table.t th { background: #fff3c4; }
+  table.t td code { font-size: 19px; }
+  .mockwrap { border: 3px solid var(--ink); border-radius: 14px; overflow: hidden; box-shadow: var(--sh); background: #fff; }
+  .mockwrap iframe { border: 0; width: 100%; height: 100%; display: block; }
+  .tree { font-family: var(--mono); font-size: 16px; line-height: 1.5; background: #1f1b2e; color: #f4f0ff; border: 3px solid var(--ink); border-radius: 14px; box-shadow: var(--sh); padding: 12px 14px; overflow: auto; }
+  .tree div { white-space: pre; cursor: default; border-radius: 4px; padding: 0 4px; }
+  .tree div.on { background: rgba(255, 201, 60, 0.35); }
+  .tree .tg { color: #ff9ecf; } .tree .at { color: #8fc1ff; } .tree .vl { color: #ffe08a; } .tree .tx { color: #8ee6c1; }
+  .sel-in { width: 100%; font-family: var(--mono); font-size: 24px; padding: 10px 14px; border: 3px solid var(--ink); border-radius: 12px; box-shadow: 3px 3px 0 var(--ink); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+  .chip { font-family: var(--mono); font-size: 16px; padding: 4px 10px; border: 2px solid var(--ink); border-radius: 8px; background: #fff; cursor: pointer; }
+  .chip:hover { background: var(--c); }
+  .chip.x { background: #ece9ff; }
+  .count { font-size: 30px; font-weight: 900; }
+  .count.zero { color: var(--bad); }
+  .flow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .flow .box { border: 3px solid var(--ink); border-radius: 14px; padding: 10px 14px; background: #fff; box-shadow: var(--sh); font-weight: 800; font-size: 20px; text-align: center; }
+  .flow .box small { display: block; font-weight: 600; color: var(--muted); font-size: 15px; font-family: var(--mono); }
+  .flow .arr { font-size: 28px; font-weight: 900; }
+  .err { font-family: var(--mono); font-weight: 800; font-size: 19px; color: var(--bad); }
+  .timeline { position: relative; height: 70px; border: 3px solid var(--ink); border-radius: 12px; background: #fff; box-shadow: var(--sh); margin: 6px 0 4px; overflow: hidden; }
+  .timeline .seg { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; border-right: 2px dashed var(--ink); }
+  .ok-row { display: flex; gap: 10px; align-items: baseline; }
+  .num { display: inline-flex; width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--ink); background: var(--c); font-weight: 900; align-items: center; justify-content: center; font-size: 18px; flex: none; }
+  ol.tasks { margin: 0; padding-left: 0; list-style: none; columns: 2; column-gap: 30px; }
+  ol.tasks li { font-size: 21px; margin-bottom: 8px; break-inside: avoid; display: flex; gap: 10px; align-items: baseline; }
+  kbd { font-family: var(--mono); font-size: 0.85em; border: 2px solid var(--ink); border-bottom-width: 4px; border-radius: 6px; padding: 0 6px; background: #fff; }
+</style>
+</head>
+<body>
+<div id="deck">
+
+<!-- 1 -->
+<section class="slide">
+  <span class="kicker">Методы сбора данных · Selenium, занятие 2</span>
+  <div class="cols wide-left grow" style="align-items:center">
+    <div>
+      <h1>Находим элементы и собираем новости</h1>
+      <p class="big muted">find_element, CSS-селекторы, XPath, формы и ожидания</p>
+      <p style="margin-top:22px">Браузер мы уже запускали. Сегодня научим программу <b>читать</b> страницу: найти нужный кусок и достать из него текст и ссылку.</p>
+    </div>
+    <div class="card y float" style="font-size:22px">
+      <p style="margin:0 0 8px"><b>В конце пары у вас будет:</b></p>
+      <p style="margin:0 0 6px">📰 парсер главных новостей lenta.ru — задание LXP</p>
+      <p style="margin:0 0 6px">📂 3 рубрики в CSV — заготовка к КТ</p>
+      <p style="margin:0">🔐 вход на сайт через форму — заготовка к КТ</p>
+    </div>
+  </div>
+  <aside class="notes">Напомните прошлое занятие: запускали Chrome/Firefox, скрывали режим «управляется автоматически». Сегодня — что делать со страницей, когда она открылась.</aside>
+</section>
+
+<!-- 2 -->
+<section class="slide" data-demo="tree">
+  <span class="kicker">DOM</span>
+  <h2>Страница — это дерево тегов</h2>
+  <div class="cols grow" style="grid-template-columns: 1fr 1.1fr; min-height:0">
+    <div class="mockwrap" style="height:400px"><iframe id="tree-frame" title="Мини-страница"></iframe></div>
+    <div class="tree" id="tree" style="height:400px"></div>
+  </div>
+  <p style="font-size:21px;margin-top:14px">Наведите мышь на строку справа — подсветится элемент слева. Selenium видит именно это дерево, а не картинку.</p>
+  <aside class="notes"><b>4 мин.</b> Покажите вложенность: карточка <code>a</code> внутри блока <code>topnews</code>, заголовок и время — внутри карточки. Слова «родитель», «потомок». Класс может быть не один: <code>class="card-mini _topnews"</code> — это два класса.</aside>
+</section>
+
+<!-- 3 -->
+<section class="slide">
+  <span class="kicker">Главный инструмент</span>
+  <h2>Сначала F12, потом код</h2>
+  <div class="cols">
+    <div>
+      <div class="ok-row step"><span class="num">1</span><p><kbd>F12</kbd> → вкладка <b>Elements</b>: код страницы деревом</p></div>
+      <div class="ok-row step"><span class="num">2</span><p><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd> и клик по новости — браузер покажет её тег</p></div>
+      <div class="ok-row step"><span class="num">3</span><p><kbd>Ctrl</kbd>+<kbd>F</kbd> в Elements → вставить селектор. Справа счётчик: <b>«1 of 16»</b></p></div>
+      <div class="ok-row step"><span class="num">4</span><p>Счётчик правильный — только теперь переносим селектор в Python</p></div>
+    </div>
+    <div class="card b step">
+      <h3>Почему так</h3>
+      <p style="font-size:22px">Запуск Selenium — 5–10 секунд. Проверка селектора в Ctrl+F — мгновенно. Десять попыток в браузере быстрее, чем две в коде.</p>
+      <p style="font-size:22px;margin:0">Ещё способ — вкладка <b>Console</b>:<br><code>$$('.topnews a').length</code></p>
+    </div>
+  </div>
+  <aside class="notes"><b>5 мин.</b> Покажите вживую на lenta.ru: Ctrl+Shift+C по новости, затем Ctrl+F «.topnews a._topnews» — счётчик. Это главный навык занятия, не торопитесь.</aside>
+</section>
+
+<!-- 4 -->
+<section class="slide">
+  <span class="kicker">Один или много</span>
+  <h2>find_element и find_elements</h2>
+  <table class="t">
+    <tr><th></th><th><code>find_element</code></th><th><code>find_elements</code></th></tr>
+    <tr><td>Возвращает</td><td>первый подходящий элемент</td><td><b>список</b> всех подходящих</td></tr>
+    <tr><td>Ничего не нашёл</td><td><span class="err">NoSuchElementException</span></td><td>пустой список <code>[]</code>, без ошибки</td></tr>
+    <tr><td>Когда нужен</td><td>логотип, поле логина, кнопка</td><td>карточки новостей, строки таблицы</td></tr>
+  </table>
+  <pre class="py" style="margin-top:22px">
+logo = driver.find_element(By.ID, "logo")
+cards = driver.find_elements(By.CLASS_NAME, "card-mini")
+print(logo.text, len(cards))
+</pre>
+  <aside class="notes"><b>3 мин.</b> Частая ошибка: <code>find_elements(...).text</code> — у списка нет .text, нужен цикл.</aside>
+</section>
+
+<!-- 5 -->
+<section class="slide">
+  <span class="kicker">By</span>
+  <h2>Способы искать</h2>
+  <table class="t">
+    <tr><th>By.</th><th>Пример</th><th>Найдёт</th></tr>
+    <tr><td><code>ID</code></td><td><code>"logo"</code></td><td><code>&lt;a id="logo"&gt;</code></td></tr>
+    <tr><td><code>NAME</code></td><td><code>"login"</code></td><td><code>&lt;input name="login"&gt;</code> — поля форм</td></tr>
+    <tr><td><code>CLASS_NAME</code></td><td><code>"topnews"</code></td><td>элемент с этим классом (<b>один</b> класс, без точки)</td></tr>
+    <tr><td><code>TAG_NAME</code></td><td><code>"time"</code></td><td><code>&lt;time&gt;</code></td></tr>
+    <tr><td><code>LINK_TEXT</code></td><td><code>"Спорт"</code></td><td><code>&lt;a&gt;Спорт&lt;/a&gt;</code></td></tr>
+    <tr><td><code>CSS_SELECTOR</code> ⭐</td><td><code>".topnews a._topnews"</code></td><td>что угодно, коротко</td></tr>
+    <tr><td><code>XPATH</code></td><td><code>'//a[text()="Спорт"]'</code></td><td>что угодно, умеет искать по тексту</td></tr>
+  </table>
+  <aside class="notes"><b>3 мин.</b> Ловушка: <code>By.CLASS_NAME, "card-mini _topnews"</code> с пробелом не работает — это два класса. Для двух классов CSS: <code>.card-mini._topnews</code>. Импорт: <code>from selenium.webdriver.common.by import By</code>.</aside>
+</section>
+
+<!-- 6 -->
+<section class="slide">
+  <span class="kicker">CSS-селекторы</span>
+  <h2>Шпаргалка: 7 правил хватит на всё</h2>
+  <table class="t">
+    <tr><th>Селектор</th><th>Значит</th></tr>
+    <tr><td><code>time</code></td><td>все теги <code>&lt;time&gt;</code></td></tr>
+    <tr><td><code>.card-mini</code></td><td>класс <code>card-mini</code> (точка = класс)</td></tr>
+    <tr><td><code>#logo</code></td><td>id <code>logo</code> (решётка = id)</td></tr>
+    <tr><td><code>a._topnews</code></td><td>тег <code>a</code> <b>и</b> класс <code>_topnews</code> (без пробела = одновременно)</td></tr>
+    <tr><td><code>.topnews a</code></td><td><code>a</code> <b>где-то внутри</b> <code>.topnews</code> (пробел = внутри)</td></tr>
+    <tr><td><code>.card-big__title, .card-mini__title</code></td><td>то <b>или</b> другое (запятая = или)</td></tr>
+    <tr><td><code>[name="login"]</code></td><td>по любому атрибуту</td></tr>
+  </table>
+  <aside class="notes"><b>3 мин.</b> Самое важное — разница «пробел» и «без пробела». <code>a._topnews</code> — один элемент с двумя признаками; <code>a ._topnews</code> — внутри a.</aside>
+</section>
+
+<!-- 7 -->
+<section class="slide" data-demo="trainer">
+  <span class="kicker">Тренажёр</span>
+  <h2 style="margin-bottom:14px">Сколько найдёт селектор?</h2>
+  <div class="cols grow" style="grid-template-columns: 1fr 1fr; min-height:0">
+    <div>
+      <input class="sel-in" id="sel-in" type="text" value=".topnews a" spellcheck="false" autocomplete="off">
+      <div class="chips" id="chips"></div>
+      <p>Нашлось: <span class="count" id="sel-n">0</span></p>
+      <p class="muted" style="font-size:19px" id="sel-msg">CSS или XPath (начинается с <code>/</code>). Попробуйте угадать число до нажатия.</p>
+    </div>
+    <div class="mockwrap" style="height:470px"><iframe id="sel-frame" title="Мини-страница"></iframe></div>
+  </div>
+  <aside class="notes"><b>6 мин.</b> Игра: показываете селектор, группа угадывает число, потом кликаете по фишке. Особенно: <code>.card-mini</code> (5 — вместе с рубрикой) против <code>.topnews .card-mini</code> (3). Затем <code>.card-big__title, .card-mini__title</code>. Пусть студенты сами предложат селектор для «всех времён в главных».</aside>
+</section>
+
+<!-- 8 -->
+<section class="slide">
+  <span class="kicker">XPath</span>
+  <h2 style="margin-bottom:16px">XPath: когда нужно искать по тексту</h2>
+  <table class="t" style="font-size:20px">
+    <tr><td><code>//time</code></td><td>все time на странице</td><td><code>//a[@id="logo"]</code></td><td>a с id = logo</td></tr>
+    <tr><td><code>//h2[text()="Главные новости"]</code></td><td>текст <b>ровно</b> такой</td><td><code>//a[contains(text(), "Спорт")]</code></td><td>текст <b>содержит</b></td></tr>
+    <tr><td><code>//div[contains(@class, "topnews")]</code></td><td>класс содержит</td><td><code>(//time)[1]</code></td><td>первый найденный</td></tr>
+  </table>
+  <div class="card r" style="margin-top:22px">
+    <h3>Ловушка с точкой</h3>
+    <div class="cols" style="grid-template-columns:auto 1fr;gap:24px;align-items:center">
+      <pre class="py sm">
+card.find_element(By.XPATH, "//time")   # первое time на ВСЕЙ странице #!
+card.find_element(By.XPATH, ".//time")  # time внутри card
+</pre>
+      <p style="font-size:21px;margin:0"><code>//</code> ищет от корня страницы, даже если вызвали у карточки. Внутри карточки — <b><code>.//</code></b>. В CSS такой проблемы нет.</p>
+    </div>
+  </div>
+  <aside class="notes"><b>4 мин.</b> Эта ловушка даёт «у всех новостей одинаковое время» — покажите, это запомнится. В старой презентации есть ещё starts-with, last(), position() — для справки.</aside>
+</section>
+
+<!-- 9 -->
+<section class="slide">
+  <span class="kicker">Главная схема</span>
+  <h2>Группа → каждая новость в группе</h2>
+  <div class="flow" style="margin-bottom:22px">
+    <div class="box">driver<small>вся страница</small></div><span class="arr">→</span>
+    <div class="box" style="background:#fff3c4">group<small>.topnews</small></div><span class="arr">→</span>
+    <div class="box" style="background:#e3eeff">cards<small>a._topnews × 8</small></div><span class="arr">→</span>
+    <div class="box" style="background:#dff7ea">ссылка · заголовок · время</div>
+  </div>
+  <pre class="py">
+group = driver.find_element(By.CLASS_NAME, "topnews")
+cards = group.find_elements(By.CSS_SELECTOR, "a._topnews")     # ищем ВНУТРИ group #!
+news = []
+for card in cards:
+    link = card.get_attribute("href")                          # атрибут самой карточки
+    title = card.find_element(By.CSS_SELECTOR, ".card-big__title, .card-mini__title").text
+    time = card.find_element(By.TAG_NAME, "time").text
+    news.append({"link": link, "title": title, "time": time})
+</pre>
+  <aside class="notes"><b>5 мин.</b> Разберите построчно. Почему не <code>driver.find_elements(".card-mini")</code>: на странице есть ещё карточки рубрик — получим лишнее. Это и есть «нахождение группы новостей + каждой новости в этой группе» из задания LXP.</aside>
+</section>
+
+<!-- 10 -->
+<section class="slide">
+  <span class="kicker">Что достать</span>
+  <h2>Текст, атрибут, тег внутри</h2>
+  <div class="cols c3">
+    <div class="card y"><h3><code>.text</code></h3><p style="font-size:21px;margin:0">Видимый текст элемента и всех его потомков. Скрытый элемент даст пустую строку.</p></div>
+    <div class="card b"><h3><code>.get_attribute("href")</code></h3><p style="font-size:21px;margin:0">Значение атрибута. Для <code>href</code> Selenium сразу отдаёт <b>полную</b> ссылку: <code>/news/…</code> → <code>https://lenta.ru/news/…</code></p></div>
+    <div class="card g"><h3><code>el.find_element(...)</code></h3><p style="font-size:21px;margin:0">Поиск внутри элемента. Так берём заголовок и время из одной карточки, а не из всей страницы.</p></div>
+  </div>
+  <div class="card p" style="margin-top:24px"><p style="font-size:22px;margin:0">Если <code>.text</code> пустой, а в F12 текст есть — элемент скрыт или ещё не загрузился. Попробуйте <code>get_attribute("textContent")</code> или подождите (слайд 12).</p></div>
+  <aside class="notes"><b>2 мин.</b></aside>
+</section>
+
+<!-- 11 -->
+<section class="slide">
+  <span class="kicker">Задание LXP · lenta.ru</span>
+  <h2>На настоящем сайте — то же самое</h2>
+  <div class="cols">
+    <div>
+      <p>Разметку главных новостей полигона мы скопировали с lenta.ru. Код из задания 4 почти подойдёт.</p>
+      <p class="step"><b>Проверьте сами в F12:</b> как называется блок, какой общий класс у карточек, где заголовок и время.</p>
+      <p class="step">Часть ссылок ведёт на другие сайты (moslenta.ru, lenta.news). Это нормально.</p>
+    </div>
+    <div class="card y step">
+      <h3>Если «вчера работало, сегодня нет»</h3>
+      <p style="font-size:21px">Сайт поменял классы. Код не виноват: открываем F12 и ищем заново.</p>
+      <p style="font-size:21px;margin:0">Поэтому сначала тренируемся на <b>полигоне</b>: он не меняется, а проверки показывают ✅/❌.</p>
+    </div>
+  </div>
+  <aside class="notes"><b>2 мин.</b> Не диктуйте селекторы lenta — пусть найдут сами через Ctrl+F (решение у вас в teacher/mso-selenium/solutions/task05_lenta.py, проверено 28.10.2026: .topnews, a._topnews, 16 карточек).</aside>
+</section>
+
+<!-- 12 -->
+<section class="slide" data-demo="wait">
+  <span class="kicker">Ожидания</span>
+  <h2>Кнопка «Показать ещё» и WebDriverWait</h2>
+  <div class="timeline" id="tl">
+    <div class="seg" style="left:0;width:8%;background:#ffe5e5">click</div>
+    <div class="seg" style="left:8%;width:42%;background:#fff3c4">сайт грузит новости… (1,5 с)</div>
+    <div class="seg" style="left:50%;width:50%;background:#dff7ea">12 карточек</div>
+  </div>
+  <div class="cols" style="margin-top:18px;grid-template-columns:0.72fr 1.28fr;gap:24px">
+    <div>
+      <p style="font-size:22px"><b>Без ожидания:</b> считаем сразу после click — <b>6</b> карточек вместо 12.</p>
+      <p style="font-size:22px"><b>time.sleep(3)</b> — работает, но ждёт 3 с всегда. А если сеть медленная и нужно 4?</p>
+      <p style="font-size:22px"><b>WebDriverWait</b> — проверяет условие каждые полсекунды и идёт дальше, как только оно выполнилось.</p>
+    </div>
+    <pre class="py sm">
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
+wait = WebDriverWait(driver, 10)   # ждать не дольше 10 с
+driver.find_element(By.ID, "loadmore").click()
+wait.until(EC.invisibility_of_element_located(
+    (By.ID, "loadmore")))           # двойные скобки! #!
+</pre>
+  </div>
+  <aside class="notes"><b>4 мин.</b> Двойные скобки — частая ошибка: условию передаётся кортеж (By, "селектор"). Другие условия: visibility_of_element_located, element_to_be_clickable, presence_of_all_elements_located.</aside>
+</section>
+
+<!-- 13 -->
+<section class="slide">
+  <span class="kicker">Формы</span>
+  <h2>Напечатать, выбрать, нажать</h2>
+  <div class="cols">
+    <pre class="py sm">
+from selenium.webdriver.support.ui import Select
+
+field = driver.find_element(By.NAME, "login")
+field.clear()                    # очистить
+field.send_keys("student")       # напечатать
+driver.find_element(By.ID, "submit").click()
+
+# выпадающий список &lt;select&gt;
+op = Select(driver.find_element(By.ID, "op"))
+op.select_by_visible_text("умножить")
+op.select_by_value("mul")
+op.select_by_index(2)
+</pre>
+    <div>
+      <div class="card r"><p style="font-size:21px;margin:0">В старой презентации пример с <code>Select</code> написан на <b>Java</b> (<code>new Select(el)</code>, <code>selectByValue</code>). В Python так, как слева.</p></div>
+      <div class="card g" style="margin-top:18px"><h3>Для КТ «авторизация»</h3><p style="font-size:21px;margin:0">Пароль не пишем в коде: <code>getpass.getpass()</code>. Аккаунт — тестовый, не основной. Сначала полигон (задание 8), потом настоящий сайт.</p></div>
+    </div>
+  </div>
+  <aside class="notes"><b>4 мин.</b> На многих сайтах вход защищён капчей или подтверждением по SMS — это нормально, выбирайте сайт попроще (или учебный стенд, например the-internet.herokuapp.com/login).</aside>
+</section>
+
+<!-- 14 -->
+<section class="slide">
+  <span class="kicker">Ошибки</span>
+  <h2>Ошибка — это подсказка</h2>
+  <table class="t">
+    <tr><th>Ошибка</th><th>Что случилось</th><th>Что делать</th></tr>
+    <tr><td class="err">NoSuchElementException</td><td>селектор не нашёл элемент</td><td>проверить в F12 Ctrl+F; подождать загрузку</td></tr>
+    <tr><td class="err">InvalidSelectorException</td><td>опечатка в селекторе</td><td>скобки, кавычки, точка в CLASS_NAME</td></tr>
+    <tr><td class="err">TimeoutException</td><td>WebDriverWait не дождался</td><td>условие неверное или элемент так и не появился</td></tr>
+    <tr><td class="err">ElementClickIntercepted…</td><td>кнопку закрывает баннер</td><td>сначала закрыть баннер cookie</td></tr>
+    <tr><td class="err">StaleElementReference…</td><td>ушли со страницы, элемент «протух»</td><td>сохранять строки (ссылки), а не элементы</td></tr>
+    <tr><td class="err">'list' object has no attribute 'text'</td><td>взяли .text у find_elements</td><td>цикл <code>for</code> по списку</td></tr>
+  </table>
+  <aside class="notes"><b>3 мин.</b> Научите читать последнюю строку трейсбэка — там название ошибки.</aside>
+</section>
+
+<!-- 15 -->
+<section class="slide">
+  <span class="kicker">Вежливый парсинг</span>
+  <h2>Правила, чтобы не забанили</h2>
+  <div class="cols">
+    <div>
+      <p>⏱ <b>Пауза</b> между страницами: <code>time.sleep(0.5–1)</code>. 30 студентов без пауз — это маленькая DDoS-атака.</p>
+      <p>🤖 <b>robots.txt</b>: <code>lenta.ru/robots.txt</code> — что сайт просит не обходить.</p>
+      <p>🔐 <b>Только свои аккаунты</b> и только тестовые для учёбы.</p>
+    </div>
+    <div>
+      <p>🙅 <b>Персональные данные</b> (телефоны, профили людей) не собираем: это закон о персональных данных.</p>
+      <p>📦 Есть <b>API</b>? Берите API: быстрее и честнее, чем Selenium.</p>
+      <p>🧪 Отлаживаем на <b>полигоне</b>, на настоящий сайт идём с готовым кодом.</p>
+    </div>
+  </div>
+  <aside class="notes"><b>2 мин.</b></aside>
+</section>
+
+<!-- 16 -->
+<section class="slide">
+  <span class="kicker">Практика</span>
+  <h2>9 заданий с автопроверкой ✅ / ❌</h2>
+  <ol class="tasks">
+    <li><span class="num">1</span>Открыть полигон, title</li>
+    <li><span class="num">2</span>Один элемент — 5 способов By</li>
+    <li><span class="num">3</span>find_elements и поиск внутри блока</li>
+    <li><span class="num">4</span>Главные новости полигона</li>
+    <li><span class="num" style="background:#ff8fb1">5</span><b>lenta.ru — сдать в LXP</b></li>
+    <li><span class="num">6</span>3 рубрики + «Показать ещё» → CSV</li>
+    <li><span class="num">7</span>Калькулятор: send_keys, Select</li>
+    <li><span class="num">8</span>Вход на сайт, секретный код</li>
+    <li><span class="num">9</span>Бонус: зайти в каждую новость</li>
+  </ol>
+  <div class="card y" style="margin-top:16px">
+    <p style="font-size:21px;margin:0">Папка <code>selenium-02/practice</code>: открыть <code>taskNN_….py</code>, заменить <code>...</code> своим кодом, запустить. Полигон открывается <b>без интернета</b> — он лежит в папке <code>polygon</code>.<br>Задания 6 и 8 — это почти готовые КТ: «три раздела новостей» и «авторизация».</p>
+  </div>
+  <aside class="notes">Сильным — сразу 4→5→6. Слабым — 1→2→3→4→5, остальное дома. Все проверки идут прямо в консоли.</aside>
+</section>
+
+</div>
+<script src="../shared/slides.js"></script>
+<script>
+// Мини-страница для демо: та же разметка, что у полигона и lenta.ru
+const MOCK = `<!doctype html><html><head><meta charset="utf-8"><style>
+body{font:15px/1.4 "Segoe UI",sans-serif;margin:0;color:#1b1d22;background:#f4f5f7}
+header{background:#1b1d22;color:#fff;padding:8px 12px;display:flex;gap:14px;align-items:center}
+#logo{font-weight:900;color:#fff;text-decoration:none}
+nav a{color:#ddd;margin-right:8px;text-decoration:none}
+h2{font-size:16px;margin:10px 12px 6px}
+.topnews,.rubric{background:#fff;margin:0 12px 10px;padding:6px 12px;border-radius:8px}
+a{color:inherit;text-decoration:none}
+.card-big,.card-mini{display:block;padding:6px 0;border-bottom:1px solid #e2e4e9}
+.card-big__title{margin:0 0 2px;font-size:17px}
+.card-mini__title{display:block;font-weight:600}
+time{color:#6b707c;font-size:12px}
+footer{margin:0 12px;color:#6b707c;font-size:12px}
+.hl{outline:3px solid #ff6b6b !important;outline-offset:1px;background:rgba(255,201,60,.35) !important}
+</style></head><body>
+<header><a id="logo" href="/">Новости Полигона</a><nav><a class="menu__link" href="/science">Наука</a><a class="menu__link" href="/sport">Спорт</a></nav></header>
+<h2>Главные новости</h2>
+<div class="topnews">
+<a class="card-big _topnews" href="/news/301"><h3 class="card-big__title">Цены на видеокарты снизились</h3><time>23:55</time></a>
+<a class="card-mini _topnews" href="/news/101"><span class="card-mini__title">Робот научился объезжать рюкзаки</span><time>23:40</time></a>
+<a class="card-mini _topnews" href="/news/201"><span class="card-mini__title">Победа в киберфутболе</span><time>23:25</time></a>
+<a class="card-mini _topnews" href="/news/204"><span class="card-mini__title">Новый гроссмейстер из Казани</span><time>20:15</time></a>
+</div>
+<h2>Наука</h2>
+<div class="rubric">
+<a class="card-mini _rubric" href="/news/112"><span class="card-mini__title">В пруду поселились бобры</span><time>08:40</time></a>
+<a class="card-mini _rubric" href="/news/111"><span class="card-mini__title">Мост с 3D-принтера</span><time>10:05</time></a>
+</div>
+<footer><p class="copyright">© 2026 Учебный сайт</p></footer>
+</body></html>`;
+
+function loadMock(frame) {
+  return new Promise(res => {
+    if (frame.dataset.ready) return res(frame.contentDocument);
+    frame.onload = () => { frame.dataset.ready = 1; res(frame.contentDocument); };
+    frame.srcdoc = MOCK;
+  });
+}
+
+Deck.demos.tree = () => {
+  const frame = document.getElementById('tree-frame'), box = document.getElementById('tree');
+  loadMock(frame).then(doc => {
+    if (box.dataset.ready) return;
+    box.dataset.ready = 1;
+    const e = s => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    const lines = [];
+    (function walk(el, depth) {
+      const attrs = [...el.attributes].filter(a => ['id', 'class', 'href'].includes(a.name))
+        .map(a => ` <span class="at">${a.name}</span>=<span class="vl">"${e(a.value)}"</span>`).join('');
+      const kids = [...el.children];
+      const own = kids.length ? '' : e(el.textContent.trim()).slice(0, 28);
+      lines.push({ el, html: `${'  '.repeat(depth)}<span class="tg">&lt;${el.tagName.toLowerCase()}</span>${attrs}<span class="tg">&gt;</span>${own ? `<span class="tx">${own}</span>` : ''}` });
+      kids.forEach(k => walk(k, depth + 1));
+    })(doc.body, 0);
+    lines.forEach(l => {
+      const d = document.createElement('div');
+      d.innerHTML = l.html;
+      d.onmouseenter = () => { l.el.classList.add('hl'); d.classList.add('on'); l.el.scrollIntoView({ block: 'nearest' }); };
+      d.onmouseleave = () => { l.el.classList.remove('hl'); d.classList.remove('on'); };
+      box.appendChild(d);
+    });
+  });
+};
+
+Deck.demos.trainer = () => {
+  const frame = document.getElementById('sel-frame'), inp = document.getElementById('sel-in');
+  const out = document.getElementById('sel-n'), msg = document.getElementById('sel-msg'), chips = document.getElementById('chips');
+  const PRESETS = ['a', '.card-mini', '.topnews .card-mini', '.topnews a', 'a._topnews', '.card-big__title, .card-mini__title', '.topnews time', '#logo', '[href="/sport"]', '//h2', '//a[text()="Спорт"]', '//span[contains(@class, "title")]'];
+  if (!chips.childElementCount) {
+    PRESETS.forEach(p => {
+      const b = document.createElement('button');
+      b.className = 'chip' + (p.startsWith('/') ? ' x' : '');
+      b.textContent = p;
+      b.onclick = () => { inp.value = p; run(); };
+      chips.appendChild(b);
+    });
+  }
+  let doc = null;
+  function run() {
+    if (!doc) return;
+    doc.querySelectorAll('.hl').forEach(el => el.classList.remove('hl'));
+    const q = inp.value.trim();
+    let found = [];
+    try {
+      if (!q) throw new Error('пусто');
+      if (q.startsWith('/') || q.startsWith('(') || q.startsWith('.//')) {
+        const r = doc.evaluate(q, doc, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+        for (let i = 0; i < r.snapshotLength; i++) found.push(r.snapshotItem(i));
+        msg.textContent = 'XPath';
+      } else {
+        found = [...doc.querySelectorAll(q)];
+        msg.textContent = 'CSS-селектор';
+      }
+    } catch (err) {
+      msg.textContent = q ? 'Ошибка в селекторе — Selenium выдал бы InvalidSelectorException' : 'Введите селектор';
+      out.textContent = '—';
+      out.classList.add('zero');
+      return;
+    }
+    found.forEach(el => el.nodeType === 1 && el.classList.add('hl'));
+    out.textContent = found.length;
+    out.classList.toggle('zero', found.length === 0);
+    if (!found.length) msg.textContent += ': ничего не нашлось — в Selenium это NoSuchElementException (или [] у find_elements)';
+  }
+  inp.oninput = run;
+  loadMock(frame).then(d => { doc = d; run(); });
+};
+
+Deck.demos.wait = () => {
+  const segs = document.querySelectorAll('#tl .seg');
+  segs.forEach(s => { s.style.opacity = 0.15; });
+  let i = 0;
+  const id = setInterval(() => {
+    if (i < segs.length) segs[i++].style.opacity = 1;
+    else { segs.forEach(s => { s.style.opacity = 0.15; }); i = 0; }
+  }, 900);
+  return () => clearInterval(id);
+};
+</script>
+</body>
+</html>

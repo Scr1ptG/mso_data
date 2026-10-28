@@ -1,0 +1,81 @@
+{
+  "title": "Selenium: поиск элементов",
+  "defaults": { "time": 25, "difficulty": 1 },
+  "questions": [
+    {
+      "text": "Что вернёт `find_elements`, если на странице ничего не нашлось?",
+      "options": ["None", "Пустой список []", "Ошибку NoSuchElementException", "Пустую строку"],
+      "correct": 1,
+      "explain": "find_elements всегда возвращает список. Ошибку бросает find_element (без s)."
+    },
+    {
+      "text": "Какой CSS-селектор найдёт элемент с классом `topnews`?",
+      "options": ["#topnews", "topnews", ".topnews", "[topnews]"],
+      "correct": 2,
+      "explain": "Точка — класс, решётка — id, просто слово — тег."
+    },
+    {
+      "text": "Чем отличаются `a._topnews` и `a ._topnews`?",
+      "options": ["Ничем", "Первый — тег a с классом _topnews; второй — элемент с классом _topnews внутри a", "Первый — внутри a; второй — сам a", "Второй селектор с ошибкой"],
+      "correct": 1,
+      "difficulty": 2,
+      "explain": "Без пробела — один элемент с обоими признаками. Пробел — «где-то внутри»."
+    },
+    {
+      "text": "Как получить ссылку из карточки новости `<a href=\"/news/1\">`?",
+      "code": "card = group.find_element(By.TAG_NAME, \"a\")",
+      "options": ["card.text", "card.href", "card.get_attribute(\"href\")", "card.find_element(By.LINK_TEXT, \"href\")"],
+      "correct": 2,
+      "explain": "Атрибуты достаются через get_attribute. Selenium сразу отдаёт полную ссылку."
+    },
+    {
+      "text": "Почему этот код печатает одинаковое время у всех новостей?",
+      "code": "for card in cards:\n    print(card.find_element(By.XPATH, \"//time\").text)",
+      "options": ["Сайт так устроен", "//time ищет от корня страницы, нужно .//time", "Нужен find_elements", "Не хватает time.sleep"],
+      "correct": 1,
+      "difficulty": 3,
+      "time": 35,
+      "explain": "XPath с // ищет по всему документу, даже если вызван у элемента. Внутри элемента — .//"
+    },
+    {
+      "text": "В блоке главных новостей заголовки лежат в `.card-big__title` и `.card-mini__title`. Какой селектор найдёт оба?",
+      "options": [".card-big__title .card-mini__title", ".card-big__title, .card-mini__title", ".card-big__title + .card-mini__title", ".card-*__title"],
+      "correct": 1,
+      "difficulty": 2,
+      "explain": "Запятая в CSS — «или»."
+    },
+    {
+      "text": "После клика «Показать ещё» новости появляются через 1,5 с. Как правильно их дождаться?",
+      "options": ["Сразу вызвать find_elements", "time.sleep(100)", "WebDriverWait(driver, 10).until(...)", "driver.refresh()"],
+      "correct": 2,
+      "explain": "WebDriverWait ждёт ровно сколько нужно, но не дольше заданного времени."
+    },
+    {
+      "text": "Как ввести текст в поле логина?",
+      "options": ["field.text = \"student\"", "field.send_keys(\"student\")", "field.type(\"student\")", "field.set(\"student\")"],
+      "correct": 1,
+      "explain": "send_keys печатает текст, clear() очищает поле."
+    },
+    {
+      "text": "Как выбрать пункт «умножить» в выпадающем списке на Python?",
+      "options": ["new Select(el).selectByVisibleText(\"умножить\")", "Select(el).select_by_visible_text(\"умножить\")", "el.select(\"умножить\")", "el.send_keys(\"умножить\").click()"],
+      "correct": 1,
+      "difficulty": 2,
+      "explain": "Первый вариант — Java. В Python: from selenium.webdriver.support.ui import Select."
+    },
+    {
+      "text": "Что лучше сделать ДО того, как писать селектор в коде?",
+      "options": ["Перезагрузить компьютер", "Проверить его в F12 → Elements → Ctrl+F", "Скопировать XPath из ChatGPT", "Запустить код 10 раз"],
+      "correct": 1,
+      "explain": "Ctrl+F в Elements принимает CSS и XPath и сразу показывает, сколько элементов нашлось."
+    },
+    {
+      "text": "Ошибка `StaleElementReferenceException` после `driver.get(...)` в цикле. Что случилось?",
+      "options": ["Сайт заблокировал парсер", "Элементы со старой страницы «протухли» — нужно было сохранить ссылки строками", "Неправильный селектор", "Не установлен драйвер"],
+      "correct": 1,
+      "difficulty": 3,
+      "time": 35,
+      "explain": "После перехода на другую страницу старые элементы недоступны. Сохраняйте строки (href), а не элементы."
+    }
+  ]
+}
