@@ -1,36 +1,103 @@
-"""Общий код для заданий: запуск браузера, адрес полигона и проверки ✅/❌.
+"""Общий код для заданий: запуск браузера, адрес полигона, проверки ✅/❌ и скриншоты.
 
 Этот файл менять не нужно. В заданиях пишите:
     from common import start, polygon, check
+Работает и на компьютере, и в Google Colab (там браузер без окна, смотреть через show).
 """
 import os
 import re
+import sys
 from pathlib import Path
 
 from selenium import webdriver
+from selenium.webdriver.common.by import By
 
 # Какой браузер запускать: "chrome", "firefox" или "edge"
 BROWSER = "chrome"
 
+IN_COLAB = "google.colab" in sys.modules
+
 # Полигон лежит рядом с заданиями (папка mso_data/polygon) и открывается без интернета.
-# Если папки нет, берём сайт из интернета.
-LOCAL = Path(__file__).resolve().parents[2] / "polygon"
+# Если папки нет (например, в Colab), берём сайт из интернета.
+_here = Path(__file__).resolve()
+LOCAL = _here.parents[2] / "polygon" if len(_here.parents) > 2 else None
 ONLINE = "https://scr1ptg.github.io/mso_data/polygon/"
 
 
 def polygon(page="index.html"):
     """Адрес страницы полигона, например polygon("rubric.html?r=sport")."""
     name, _, query = page.partition("?")
-    if (LOCAL / name).exists():
+    if LOCAL is not None and (LOCAL / name).exists():
         url = (LOCAL / name).as_uri()
     else:
         url = ONLINE + name
     return url + ("?" + query if query else "")
 
 
+def _find_all(driver, selector):
+    """CSS-селектор или XPath (если начинается с / или ( )."""
+    by = By.XPATH if selector.lstrip().startswith(("/", "(", "./")) else By.CSS_SELECTOR
+    return driver.find_elements(by, selector)
+
+
+def show(driver, elements=None, width=900):
+    """Скриншот страницы. Если передать элементы (или селектор), они будут обведены красным.
+
+    show(driver)                       — что сейчас видит браузер
+    show(driver, card)                 — обвести один элемент
+    show(driver, cards)                — обвести список элементов
+    show(driver, ".topnews a")         — обвести всё, что находит селектор
+    """
+    if isinstance(elements, str):
+        elements = _find_all(driver, elements)
+    if elements is not None and not isinstance(elements, (list, tuple)):
+        elements = [elements]
+    elements = list(elements or [])
+    js_mark = "arguments[0].forEach(e => { e.dataset.oldOutline = e.style.outline; e.style.outline = '3px solid red'; });"
+    js_unmark = "arguments[0].forEach(e => { e.style.outline = e.dataset.oldOutline || ''; });"
+    if elements:
+        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", elements[0])
+        driver.execute_script(js_mark, elements)
+    png = driver.get_screenshot_as_png()
+    if elements:
+        driver.execute_script(js_unmark, elements)
+    try:
+        from IPython import get_ipython
+        from IPython.display import Image, display
+        if get_ipython() is None:
+            raise ImportError
+        display(Image(png, width=width))
+    except ImportError:
+        Path("screenshot.png").write_bytes(png)
+        print("Скриншот сохранён в screenshot.png")
+
+
+def try_selector(driver, selector, show_page=True):
+    """Как Ctrl+F в F12: сколько элементов найдёт селектор, и где они на странице."""
+    try:
+        found = _find_all(driver, selector)
+    except Exception as e:
+        print(f"❌ Ошибка в селекторе «{selector}»: {type(e).__name__}")
+        return []
+    print(f"«{selector}» — найдено: {len(found)}")
+    for el in found[:5]:
+        print("   •", (el.text or el.get_attribute("outerHTML")[:80]).replace("\n", " / ")[:90])
+    if len(found) > 5:
+        print(f"   … и ещё {len(found) - 5}")
+    if show_page and found:
+        show(driver, found)
+    return found
+
+
 def start(headless=False):
     """Запускает браузер. headless=True — без окна (быстрее, но ничего не видно)."""
     headless = headless or os.environ.get("HEADLESS") == "1"
+    if IN_COLAB:
+        # В Colab нет экрана: только Chrome без окна и с флагами для контейнера
+        opts = webdriver.ChromeOptions()
+        for arg in ("--headless=new", "--no-sandbox", "--disable-dev-shm-usage", "--window-size=1280,900", "--lang=ru-RU"):
+            opts.add_argument(arg)
+        return webdriver.Chrome(options=opts)
     if BROWSER == "firefox":
         opts = webdriver.FirefoxOptions()
         if headless:
