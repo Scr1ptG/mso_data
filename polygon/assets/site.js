@@ -8,7 +8,7 @@ const param = name => new URLSearchParams(location.search).get(name);
 const app = document.getElementById('app');
 
 function header() {
-  const links = [['index.html', 'Главная'], ...Object.entries(RUBRICS).map(([k, v]) => [`rubric.html?r=${k}`, v]), ['calc.html', 'Калькулятор'], ['login.html', 'Войти']];
+  const links = [['index.html', 'Главная'], ...Object.entries(RUBRICS).map(([k, v]) => [`rubric.html?r=${k}`, v]), ['gallery.html', 'Фотобанк'], ['calc.html', 'Калькулятор'], ['login.html', 'Войти']];
   const here = location.pathname.split('/').pop() + location.search;
   document.body.insertAdjacentHTML('afterbegin', `
 <header class="header">
@@ -211,6 +211,61 @@ const pages = {
       }, 800);
     };
   },
+};
+
+// Фотобанк: как в поиске картинок — в карточке миниатюра, оригинал по ссылке,
+// картинки грузятся только когда видны (data-src → src), новые карточки — при прокрутке вниз.
+pages.gallery = () => {
+  const c = param('c');
+  const all = PHOTOS.filter(([, cls]) => !PHOTO_CLASSES[c] || cls === c);
+  const BATCH = 12;
+  document.title = (PHOTO_CLASSES[c] ? `${PHOTO_CLASSES[c]} — ` : '') + 'Фотобанк Полигона';
+  const filters = [['gallery.html', 'Все'], ...Object.entries(PHOTO_CLASSES).map(([k, v]) => [`gallery.html?c=${k}`, v])];
+  app.innerHTML = `
+<div class="gallery-page">
+  <div class="gallery__banner" style="background-image: url('photos/full/tree_01.jpg')">
+    <h1 class="gallery__title">Фотобанк Полигона</h1>
+    <p>${all.length} фотографий. Нажмите на фото, чтобы открыть оригинал.</p>
+  </div>
+  <nav class="gallery__filters">${filters.map(([h, t]) => `<a class="filter${(h === 'gallery.html' && !PHOTO_CLASSES[c]) || h.endsWith('=' + c) ? ' _active' : ''}" href="${h}">${t}</a>`).join('')}</nav>
+  <div class="gallery"></div>
+  <p id="gallery-loading" class="gallery__status" hidden>Загружаем ещё…</p>
+  <p id="gallery-end" class="gallery__status" hidden>Это все фотографии</p>
+</div>`;
+  const grid = app.querySelector('.gallery');
+  const counters = {};
+  const io = new IntersectionObserver(entries => entries.forEach(e => {
+    if (!e.isIntersecting) return;
+    e.target.src = e.target.dataset.src;
+    io.unobserve(e.target);
+  }), { rootMargin: '50px' });
+  let shown = 0, busy = false;
+  function addBatch() {
+    all.slice(shown, shown + BATCH).forEach(([name, cls]) => {
+      counters[cls] = (counters[cls] || 0) + 1;
+      const label = `${PHOTO_CLASSES[cls]} №${name.match(/\d+/)[0] * 1}`;
+      grid.insertAdjacentHTML('beforeend', `<a class="photo" href="photos/full/${name}" data-class="${cls}">
+  <img class="photo__img" src="assets/placeholder.svg" data-src="photos/thumb/${name}" alt="${label}" width="128" height="128">
+  <span class="photo__caption">${label}</span>
+</a>`);
+      io.observe(grid.lastElementChild.querySelector('img'));
+    });
+    shown = Math.min(all.length, shown + BATCH);
+    if (shown >= all.length) document.getElementById('gallery-end').hidden = false;
+  }
+  addBatch();
+  addEventListener('scroll', () => {
+    if (busy || shown >= all.length) return;
+    if (innerHeight + scrollY < document.documentElement.scrollHeight - 150) return;
+    // Новые карточки «приходят с сервера» не сразу
+    busy = true;
+    document.getElementById('gallery-loading').hidden = false;
+    setTimeout(() => {
+      addBatch();
+      document.getElementById('gallery-loading').hidden = true;
+      busy = false;
+    }, 700);
+  });
 };
 
 function token(user) {

@@ -83,3 +83,16 @@ code { font-family: Consolas, monospace; background: #eef0f4; padding: 1px 5px; 
 @media (max-width: 760px) {
   .topnews, .rubrics { grid-template-columns: 1fr; }
 }
+
+/* Фотобанк */
+.gallery__banner { border-radius: 10px; padding: 40px 28px; background-size: cover; background-position: center; color: #fff; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6); margin-bottom: 16px; }
+.gallery__title { margin: 0 0 6px; font-size: 34px; }
+.gallery__banner p { margin: 0; font-weight: 600; }
+.gallery__filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.filter { padding: 6px 14px; border-radius: 999px; background: var(--card); font-weight: 700; }
+.filter._active { background: var(--ink); color: #fff; }
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+.photo { display: block; background: var(--card); border-radius: 10px; overflow: hidden; }
+.photo__img { display: block; width: 100%; height: auto; aspect-ratio: 1; background: #e2e4e9; }
+.photo__caption { display: block; padding: 8px 12px; font-weight: 600; }
+.gallery__status { text-align: center; color: var(--muted); font-weight: 600; margin: 20px 0; }
