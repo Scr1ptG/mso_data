@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Selenium · Картинки и файлы</title>
+<link rel="stylesheet" href="../shared/slides.css">
+<style>
+  table.t { border-collapse: collapse; font-size: 21px; width: 100%; background: #fff; border: 3px solid var(--ink); border-radius: 14px; overflow: hidden; box-shadow: var(--sh); }
+  table.t th, table.t td { padding: 8px 14px; border-bottom: 2px solid var(--soft); text-align: left; vertical-align: top; }
+  table.t th { background: #fff3c4; }
+  .flow { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: center; margin: 10px 0 26px; }
+  .flow .box { border: 3px solid var(--ink); border-radius: 16px; padding: 14px 18px; background: #fff; box-shadow: var(--sh); font-weight: 900; font-size: 24px; text-align: center; min-width: 200px; }
+  .flow .box small { display: block; font-weight: 600; color: var(--muted); font-size: 17px; font-family: var(--mono); margin-top: 4px; }
+  .flow .arr { font-size: 34px; font-weight: 900; }
+  .err { font-family: var(--mono); font-weight: 800; color: var(--bad); }
+  .pic { border: 3px solid var(--ink); border-radius: 14px; box-shadow: var(--sh); display: block; background: #fff; margin: 0 auto; }
+  .cap { font-weight: 800; font-size: 20px; margin-top: 10px; text-align: center; }
+  .cap small { display: block; font-weight: 600; color: var(--muted); font-family: var(--mono); font-size: 16px; }
+  .num { display: inline-flex; width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--ink); background: var(--c); font-weight: 900; align-items: center; justify-content: center; font-size: 18px; flex: none; }
+  ol.tasks { margin: 0; padding-left: 0; list-style: none; columns: 2; column-gap: 30px; }
+  ol.tasks li { font-size: 21px; margin-bottom: 8px; break-inside: avoid; display: flex; gap: 10px; align-items: baseline; }
+  .lazy { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .lazy .tile { border: 3px solid var(--ink); border-radius: 12px; background: #fff; padding: 6px; font-family: var(--mono); font-size: 14px; text-align: center; }
+  .lazy .ph { height: 88px; border-radius: 8px; background: #e2e4e9 center / cover no-repeat; margin-bottom: 4px; }
+  .lazy .tile.viewport { outline: 4px dashed var(--a); outline-offset: 3px; }
+</style>
+</head>
+<body>
+<div id="deck">
+
+<!-- 1 -->
+<section class="slide">
+  <span class="kicker">Методы сбора данных · Selenium, занятие 3</span>
+  <div class="cols wide-left grow" style="align-items:center">
+    <div>
+      <h1>Скачиваем картинки и файлы</h1>
+      <p class="big muted">src и href, requests, скриншоты, ленивая загрузка, датасет</p>
+      <p style="margin-top:22px">Selenium находит элементы, но <b>скачивать файлы не умеет</b>. Сегодня научимся доставать адрес и скачивать то, что по нему лежит.</p>
+    </div>
+    <div class="card y float" style="font-size:22px">
+      <p style="margin:0 0 8px"><b>В конце пары у вас будет:</b></p>
+      <p style="margin:0 0 6px">📤 картинка + скриншот всей страницы — задание LXP</p>
+      <p style="margin:0 0 6px">🖼 72 картинки из фотобанка с прокруткой</p>
+      <p style="margin:0">📂 датасет «папка = класс» — заготовка к КТ</p>
+    </div>
+  </div>
+  <aside class="notes">КТ после этой темы — картинки с Яндекса и нейросеть, которая их различает. Сегодня собираем весь инструмент для первой части КТ.</aside>
+</section>
+
+<!-- 2 -->
+<section class="slide">
+  <span class="kicker">Алгоритм</span>
+  <h2>Всегда три шага</h2>
+  <div class="flow">
+    <div class="box">1. Найти элемент<small>find_element</small></div><span class="arr">→</span>
+    <div class="box" style="background:#fff3c4">2. Достать адрес<small>src / href</small></div><span class="arr">→</span>
+    <div class="box" style="background:#dff7ea">3. Скачать<small>requests.get</small></div>
+  </div>
+  <pre class="py">
+img = driver.find_element(By.TAG_NAME, "img")         # 1
+src = img.get_attribute("src")                         # 2: сразу полный адрес
+response = requests.get(src)                           # 3
+with open("cat.jpg", "wb") as f:
+    f.write(response.content)
+</pre>
+  <aside class="notes"><b>3 мин.</b> Selenium — «глаза», requests — «руки». Selenium нужен, чтобы найти адрес на странице, которую рисует JavaScript; само скачивание — обычный HTTP-запрос, как в теме про requests.</aside>
+</section>
+
+<!-- 3 -->
+<section class="slide">
+  <span class="kicker">Шаг 2</span>
+  <h2>Где лежит адрес файла</h2>
+  <table class="t">
+    <tr><th>Что на странице</th><th>Адрес здесь</th><th>Как достать</th></tr>
+    <tr><td>картинка <code>&lt;img&gt;</code></td><td><code>src</code></td><td><code>img.get_attribute("src")</code></td></tr>
+    <tr><td>ссылка на файл, PDF, оригинал фото</td><td><code>href</code></td><td><code>a.get_attribute("href")</code></td></tr>
+    <tr><td>картинка ещё не загрузилась</td><td><code>data-src</code></td><td><code>get_attribute("data-src")</code> + <code>urljoin</code></td></tr>
+    <tr><td>картинка разных размеров</td><td><code>srcset</code></td><td>«адрес ширина, адрес ширина» — последний крупнее</td></tr>
+    <tr><td>фон блока</td><td>CSS <code>background-image</code></td><td><code>el.value_of_css_property("background-image")</code></td></tr>
+  </table>
+  <p style="font-size:21px;margin-top:16px"><code>src</code> и <code>href</code> Selenium отдаёт <b>полными</b>. <code>data-*</code> — как в коде: <code>photos/thumb/ball_01.jpg</code>. Полный адрес: <code>urljoin(driver.current_url, адрес)</code>.</p>
+  <aside class="notes"><b>3 мин.</b> На Яндекс.Картинках встретятся почти все варианты сразу — поэтому всегда сначала F12.</aside>
+</section>
+
+<!-- 4 -->
+<section class="slide">
+  <span class="kicker">Шаг 3</span>
+  <h2>requests: байты, а не текст</h2>
+  <div class="cols">
+    <pre class="py sm">
+response = requests.get(src)
+print(response.status_code)              # 200?
+print(response.headers["Content-Type"])  # image/jpeg
+
+with open("cat.jpg", "wb") as f:   # w + b = байты #!
+    f.write(response.content)      # .content #!
+</pre>
+    <div>
+      <table class="t" style="font-size:19px">
+        <tr><th>Код</th><th>Значит</th></tr>
+        <tr><td>200</td><td>всё хорошо</td></tr>
+        <tr><td>403</td><td>не пускают — нужен User-Agent / cookies</td></tr>
+        <tr><td>404</td><td>нет такого файла — проверьте адрес</td></tr>
+      </table>
+      <div class="card r" style="margin-top:16px"><p style="font-size:20px;margin:0"><code>.text</code> и режим <code>"w"</code> испортят картинку: файл создастся, но не откроется.</p></div>
+    </div>
+  </div>
+  <aside class="notes"><b>3 мин.</b> В старой презентации <code>urllib.urlretrieve</code> — это Python 2. В Python 3: <code>urllib.request.urlretrieve(src, "cat.jpg")</code>, но requests удобнее и понадобится для cookies.</aside>
+</section>
+
+<!-- 5 -->
+<section class="slide">
+  <span class="kicker">Ловушка №1</span>
+  <h2>Тестовая страница открылась пустой?</h2>
+  <div class="cols">
+    <div>
+      <p>Новый Chrome (157+) сам меняет <code>http://</code> на <code>https://</code>. У <code>ithub.role.ru</code> https нет — и Selenium получает <b>пустую страницу</b>: картинки не находятся, <span class="err">NoSuchElementException</span>.</p>
+      <p style="font-size:21px">Глазами в обычном браузере всё видно — поэтому ошибка такая непонятная.</p>
+    </div>
+    <div>
+      <pre class="py sm">
+options = webdriver.ChromeOptions()
+options.add_argument(
+  "--disable-features=HttpsUpgrades,"
+  "HttpsFirstBalancedModeAutoEnable")   #!
+driver = webdriver.Chrome(options=options)
+</pre>
+      <p style="font-size:20px;margin-top:14px">В ноутбуке это уже сделано в <b>⚙️ Подготовке</b>. Firefox: <code>options.set_preference("dom.security.https_first", False)</code></p>
+    </div>
+  </div>
+  <aside class="notes"><b>2 мин.</b> Проверено 12.11.2026 на Chrome 157: без флага <code>page_source</code> — 39 символов (пустой html), с флагом — вся страница. Если у студента «на сайте нет img» — первым делом это.</aside>
+</section>
+
+<!-- 6 -->
+<section class="slide">
+  <span class="kicker">Скриншоты</span>
+  <h2>Три вида скриншотов</h2>
+  <table class="t">
+    <tr><th>Что</th><th>Код</th><th>Получится</th></tr>
+    <tr><td>видимая часть</td><td><code>driver.save_screenshot("a.png")</code></td><td>только то, что влезло в окно</td></tr>
+    <tr><td>один элемент</td><td><code>img.screenshot("a.png")</code></td><td>как картинку <b>видно</b> на странице</td></tr>
+    <tr><td>вся страница</td><td>окно на всю высоту → <code>save_screenshot</code></td><td>страница целиком</td></tr>
+  </table>
+  <pre class="py sm" style="margin-top:18px">
+height = driver.execute_script("return document.documentElement.scrollHeight")
+driver.set_window_size(1280, height + 200)    # +200: в размер окна входит рамка браузера #!
+driver.save_screenshot("page.png")
+</pre>
+  <aside class="notes"><b>3 мин.</b> Без +200 нижние ~150 px страницы обрезаются — проверка в ноутбуке это ловит. Растягивать окно так можно в Chrome без окна (headless) — в Colab так и есть. В Firefox есть готовый <code>driver.get_full_page_screenshot_as_file()</code>.</aside>
+</section>
+
+<!-- 7 -->
+<section class="slide">
+  <span class="kicker">Скриншот ≠ оригинал</span>
+  <h2>Миниатюра или оригинал</h2>
+  <div class="cols" style="align-items:end">
+    <div>
+      <img class="pic" src="../polygon/photos/thumb/ball_01.jpg" width="320" height="320" alt="Миниатюра, растянутая до размера оригинала">
+      <p class="cap">миниатюра, растянутая<small>thumb · 128×128 · 4 КБ</small></p>
+    </div>
+    <div>
+      <img class="pic" src="../polygon/photos/full/ball_01.jpg" width="320" height="320" alt="Оригинал">
+      <p class="cap">оригинал<small>full · 512×512 · 20 КБ</small></p>
+    </div>
+  </div>
+  <p style="font-size:21px;margin-top:6px">В выдаче поиска картинок в <code>&lt;img&gt;</code> — миниатюра. Оригинал — <b>по ссылке</b> карточки. Для нейросети нужны оригиналы.</p>
+  <aside class="notes"><b>2 мин.</b> Скриншот элемента — тоже «миниатюра»: размер как на экране, плюс рамка. Поэтому в теме и сказано: «в Selenium нет простого способа загрузки изображений в оригинальном качестве» — оригинал берём по адресу.</aside>
+</section>
+
+<!-- 8 -->
+<section class="slide" data-demo="lazy">
+  <span class="kicker">Ленивая загрузка</span>
+  <h2>Картинку грузят, когда её видно</h2>
+  <div class="cols" style="grid-template-columns:1.1fr 1fr">
+    <div>
+      <div class="lazy" id="lazy"></div>
+      <p class="muted" style="font-size:18px;margin-top:10px">Красная рамка — то, что сейчас на экране. Ниже — ещё заглушки.</p>
+    </div>
+    <div>
+      <pre class="py sm">
+&lt;img src="placeholder.svg"
+     data-src="photos/thumb/ball_01.jpg"&gt;
+</pre>
+      <p style="font-size:21px;margin-top:14px">Пока карточку не видно — в <code>src</code> заглушка. Браузер подставит <code>data-src</code> в <code>src</code>, когда карточка окажется на экране.</p>
+      <div class="card y"><p style="font-size:20px;margin:0">Быстро прокрутили вниз — часть картинок осталась заглушками. Берите <code>href</code> или <code>data-src</code>, а не <code>src</code>.</p></div>
+    </div>
+  </div>
+  <aside class="notes"><b>3 мин.</b> На полигоне после прыжка вниз у 4–8 картинок из 72 в src остаётся placeholder.svg — задание 8 это показывает.</aside>
+</section>
+
+<!-- 9 -->
+<section class="slide">
+  <span class="kicker">Бесконечная прокрутка</span>
+  <h2>Листаем, пока число растёт</h2>
+  <pre class="py sm">
+before = 0
+while True:
+    driver.execute_script("window.scrollTo(0, document.documentElement.scrollHeight)")
+    time.sleep(1.5)                  # новые карточки идут по сети
+    now = len(driver.find_elements(By.CSS_SELECTOR, ".gallery a.photo"))
+    if now == before:                # не выросло — конец #!
+        break
+    before = now
+</pre>
+  <div class="cols" style="margin-top:20px">
+    <p style="font-size:22px">Надписи «это всё» на большинстве сайтов нет. Универсальный признак конца — <b>число карточек перестало расти</b>.</p>
+    <p style="font-size:22px">Для Яндекса добавьте ограничение: <code>if now &gt;= 100: break</code> — иначе листать можно очень долго.</p>
+  </div>
+  <aside class="notes"><b>3 мин.</b> sleep тут оправдан: ждём неизвестно сколько карточек. Можно и WebDriverWait с лямбдой «число больше before», но тогда конец ловится через TimeoutException — сложнее для группы.</aside>
+</section>
+
+<!-- 10 -->
+<section class="slide">
+  <span class="kicker">К КТ</span>
+  <h2>Датасет: папка = класс</h2>
+  <div class="cols">
+    <pre class="py sm">
+dataset/
+├── ball/   ball_01.jpg … ball_24.jpg
+├── box/    box_01.jpg  … box_24.jpg
+└── tree/   tree_01.jpg … tree_24.jpg
+</pre>
+    <div>
+      <p style="font-size:22px">КТ: спарсить картинки нескольких классов с <b>images.yandex.ru</b> и обучить нейросеть их различать.</p>
+      <p style="font-size:22px">Нейросети читают датасет именно так: имя папки — это ответ. Сегодня собираем такой из фотобанка, в КТ — из Яндекса.</p>
+    </div>
+  </div>
+  <pre class="py sm" style="margin-top:18px">
+os.makedirs(f"dataset/{cls}", exist_ok=True)
+with open(f"dataset/{cls}/{name}", "wb") as f:
+    f.write(requests.get(url).content)
+time.sleep(0.1)          # вежливость: не 72 запроса за секунду
+</pre>
+  <aside class="notes"><b>2 мин.</b> Ноутбук нейросети уже есть в теме КТ (ссылка на Colab в LXP). Ему нужна как раз такая структура папок.</aside>
+</section>
+
+<!-- 11 -->
+<section class="slide">
+  <span class="kicker">Когда не пускают</span>
+  <h2>403: представиться браузером</h2>
+  <div class="cols">
+    <div>
+      <p style="font-size:21px">Браузер присылает свой <b>User-Agent</b> и <b>cookies</b>. requests — <code>python-requests/2.x</code> без cookies. Некоторые сайты такому отвечают 403.</p>
+      <pre class="py sm">
+s = requests.Session()
+s.headers["User-Agent"] = driver.execute_script(
+    "return navigator.userAgent")
+for c in driver.get_cookies():
+    s.cookies.set(c["name"], c["value"])
+s.get(url)          # вместо requests.get
+</pre>
+    </div>
+    <div class="card g">
+      <h3>Или пусть качает сам браузер</h3>
+      <p style="font-size:20px">JavaScript <code>fetch</code> внутри страницы → байты в base64 → Python. Браузер сам приложит свои cookies.</p>
+      <p style="font-size:20px;margin:0">Это бонус-задание 10 в ноутбуке.</p>
+    </div>
+  </div>
+  <aside class="notes"><b>3 мин.</b> Это и есть подсказки из темы КТ: «получение cookies из Selenium», «подстановка имени браузера в requests». pyAutoGUI и прокси из старой презентации в Colab не работают — там нет экрана.</aside>
+</section>
+
+<!-- 12 -->
+<section class="slide">
+  <span class="kicker">Ошибки</span>
+  <h2>Что пошло не так</h2>
+  <table class="t">
+    <tr><th>Симптом</th><th>Причина</th></tr>
+    <tr><td>нет <code>img</code>, <code>page_source</code> почти пустой</td><td>Chrome сменил http на https — флаг <code>--disable-features</code></td></tr>
+    <tr><td>файл .jpg не открывается</td><td>записали <code>.text</code> или режим <code>"w"</code>; или скачали HTML вместо картинки</td></tr>
+    <tr><td>в датасете <code>placeholder.svg</code></td><td>брали <code>src</code> у незагруженных картинок</td></tr>
+    <tr><td>картинок 12 вместо 72</td><td>не долистали страницу</td></tr>
+    <tr><td>скриншот «всей страницы» обрезан</td><td>забыли <code>+ 200</code> на рамку окна</td></tr>
+    <tr><td><span class="err">403 Forbidden</span></td><td>сайт не пускает requests — User-Agent / cookies</td></tr>
+  </table>
+  <aside class="notes"><b>2 мин.</b></aside>
+</section>
+
+<!-- 13 -->
+<section class="slide">
+  <span class="kicker">Практика</span>
+  <h2>10 заданий в Colab</h2>
+  <ol class="tasks">
+    <li><span class="num">1</span>Адрес картинки: src</li>
+    <li><span class="num" style="background:#ff8fb1">2</span><b>Скачать картинку — LXP</b></li>
+    <li><span class="num">3</span>Скриншот элемента</li>
+    <li><span class="num" style="background:#ff8fb1">4</span><b>Скриншот всей страницы — LXP</b></li>
+    <li><span class="num">5</span>Скачать PDF</li>
+    <li><span class="num">6</span>Сохранить страницу</li>
+    <li><span class="num">7</span>Миниатюра или оригинал</li>
+    <li><span class="num">8</span>Прокрутка: все 72 ссылки</li>
+    <li><span class="num">9</span>Датасет по папкам — к КТ</li>
+    <li><span class="num">10</span>Бонус: скачать через браузер</li>
+  </ol>
+  <div class="card y" style="margin-top:14px"><p style="font-size:21px;margin:0">Сдать в LXP: <code>cat.jpg</code>, <code>page.png</code> и ссылку на свою копию ноутбука.</p></div>
+  <aside class="notes">Слабым — 1–4 (это и есть LXP), сильным — до 9. Задание 9 пригодится всем на КТ.</aside>
+</section>
+
+</div>
+<script src="../shared/slides.js"></script>
+<script>
+// Ленивая загрузка: «экран» спускается по рядам, картинки появляются только в видимых рядах
+Deck.demos.lazy = () => {
+  const box = document.getElementById('lazy');
+  const names = ['ball_01', 'box_01', 'tree_01', 'ball_02', 'box_02', 'tree_02', 'ball_03', 'box_03', 'tree_03', 'ball_04', 'box_04', 'tree_04'];
+  box.innerHTML = names.map(n => `<div class="tile"><div class="ph" data-src="../polygon/photos/thumb/${n}.jpg"></div>${n.split('_')[0]}</div>`).join('');
+  const tiles = [...box.children];
+  let row = 0;
+  const paint = () => tiles.forEach((t, i) => {
+    const r = Math.floor(i / 4), ph = t.querySelector('.ph');
+    if (r <= row) ph.style.backgroundImage = `url(${ph.dataset.src})`;
+    t.classList.toggle('viewport', r === row);
+  });
+  const reset = () => tiles.forEach(t => { t.querySelector('.ph').style.backgroundImage = ''; });
+  paint();
+  const id = setInterval(() => {
+    row = (row + 1) % 3;
+    if (row === 0) reset();
+    paint();
+  }, 1400);
+  return () => clearInterval(id);
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,78 @@
+{
+  "title": "Selenium: картинки и файлы",
+  "defaults": { "time": 25, "difficulty": 1 },
+  "questions": [
+    {
+      "text": "Где у тега `<img>` лежит адрес картинки?",
+      "options": ["href", "src", "alt", "class"],
+      "correct": 1,
+      "explain": "У картинки — src, у ссылки — href."
+    },
+    {
+      "text": "Как правильно сохранить скачанную картинку?",
+      "options": ["open(\"a.jpg\", \"w\").write(r.text)", "open(\"a.jpg\", \"wb\").write(r.content)", "open(\"a.jpg\", \"w\").write(r.content)", "open(\"a.jpg\", \"r\").write(r.text)"],
+      "correct": 1,
+      "difficulty": 2,
+      "explain": "Картинка — это байты: режим \"wb\" и response.content."
+    },
+    {
+      "text": "Что даёт `driver.save_screenshot(\"a.png\")`?",
+      "options": ["Всю страницу целиком", "Только видимую часть окна", "Оригинал картинки", "HTML страницы"],
+      "correct": 1,
+      "explain": "Для всей страницы окно растягивают на высоту scrollHeight (+ запас на рамку)."
+    },
+    {
+      "text": "Скриншот элемента `img.screenshot(...)` — это оригинал картинки?",
+      "options": ["Да, всегда", "Нет: картинка как её видно на странице — размер, рамка, PNG", "Да, если картинка JPEG", "Только в Firefox"],
+      "correct": 1,
+      "explain": "Оригинал скачивают по адресу из src/href."
+    },
+    {
+      "text": "Selenium открыл `http://ithub.role.ru/...`, а страница пустая. В браузере глазами всё есть. Почему?",
+      "options": ["Сайт заблокировал Selenium", "Chrome сам сменил http на https, а https у сайта нет", "Нужен time.sleep", "Не установлен драйвер"],
+      "correct": 1,
+      "difficulty": 3,
+      "time": 35,
+      "explain": "Флаг --disable-features=HttpsUpgrades,HttpsFirstBalancedModeAutoEnable выключает подмену."
+    },
+    {
+      "text": "У картинки `src=\"placeholder.svg\"` и `data-src=\"photos/thumb/1.jpg\"`. Что это значит?",
+      "options": ["Картинка сломана", "Ленивая загрузка: настоящий адрес подставят, когда картинку будет видно", "У картинки два файла", "Это видео"],
+      "correct": 1,
+      "difficulty": 2,
+      "explain": "Берите data-src (или href ссылки), а не src."
+    },
+    {
+      "text": "`get_attribute(\"data-src\")` вернул `photos/thumb/1.jpg`. Как получить полный адрес?",
+      "options": ["\"http://\" + адрес", "urljoin(driver.current_url, адрес)", "requests.get(адрес)", "Никак"],
+      "correct": 1,
+      "difficulty": 2,
+      "explain": "src и href Selenium отдаёт полными, а data-* — как в коде страницы."
+    },
+    {
+      "text": "В поиске картинок в `<img>` маленькая миниатюра. Где обычно оригинал?",
+      "options": ["В alt", "В href ссылки-карточки или в data-атрибутах", "В title страницы", "Только на скриншоте"],
+      "correct": 1,
+      "explain": "Для датасета нужны оригиналы, а не миниатюры."
+    },
+    {
+      "text": "Как понять, что бесконечная прокрутка дошла до конца?",
+      "options": ["Прокрутить ровно 10 раз", "После прокрутки число карточек перестало расти", "Дождаться ошибки", "По заголовку страницы"],
+      "correct": 1,
+      "explain": "Листаем, ждём, считаем; не выросло — конец. На больших сайтах ставят ещё и предел."
+    },
+    {
+      "text": "requests получает `403 Forbidden`, а в браузере файл открывается. Что попробовать?",
+      "options": ["Скачать ещё 100 раз", "Передать User-Agent и cookies браузера в requests.Session", "Поменять \"wb\" на \"w\"", "Сделать скриншот"],
+      "correct": 1,
+      "difficulty": 2,
+      "explain": "Сайт видит, что пришёл не браузер. Session с UA и cookies из Selenium решает это."
+    },
+    {
+      "text": "В каком виде удобнее всего хранить картинки для обучения нейросети?",
+      "options": ["Все в одной папке", "Папка = класс: dataset/ball, dataset/box, …", "В одном PDF", "В Excel"],
+      "correct": 1,
+      "explain": "Имя папки — это ответ, так датасет читают нейросетевые библиотеки."
+    }
+  ]
+}
