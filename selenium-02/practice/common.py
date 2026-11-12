@@ -136,6 +136,9 @@ def full_page_screenshot(driver, path):
 def show_image(path, width=400):
     """Показать картинку из файла прямо в ноутбуке и напечатать её размер."""
     from PIL import Image as PILImage
+    if not Path(str(path)).exists():
+        print(f"(файла {path} пока нет)")
+        return
     with PILImage.open(path) as im:
         print(f"{path}: {im.size[0]}×{im.size[1]} px, {Path(path).stat().st_size // 1024} КБ")
     try:
@@ -157,7 +160,7 @@ def _bad(name, msg):
 
 def check(name, value, hint=""):
     """Сравнивает ваш ответ с правильным. name — номер проверки, например "03a"."""
-    if value is None or value is ...:
+    if value is None or value is ... or (isinstance(value, (tuple, list)) and any(x is ... or x is None for x in value)):
         return _bad(name, "переменная ещё не заполнена (там None или ...)")
     rule = RULES.get(name)
     if rule is None:
